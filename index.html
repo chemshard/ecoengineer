@@ -1,0 +1,741 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Multiplayer Ecosystem Sandbox</title>
+  <style>
+    :root {
+      --bg: #07100b;
+      --panel: #102019;
+      --panel2: #172a20;
+      --text: #eafff0;
+      --muted: #9fc7ad;
+      --border: #274a36;
+      --accent: #91f2a8;
+      --bad: #ff8080;
+      --warn: #ffd36f;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      color: var(--text);
+      background: radial-gradient(circle at top, #173823 0%, var(--bg) 58%);
+    }
+
+    header { padding: 22px 26px 8px; }
+
+    h1 {
+      margin: 0;
+      font-size: clamp(28px, 4vw, 44px);
+      letter-spacing: -1.4px;
+    }
+
+    .subtitle {
+      margin-top: 8px;
+      color: var(--muted);
+      line-height: 1.45;
+      max-width: 950px;
+    }
+
+    .app {
+      display: grid;
+      grid-template-columns: 340px minmax(500px, 1fr);
+      gap: 18px;
+      padding: 18px 26px 26px;
+    }
+
+    .panel {
+      background: rgba(16, 32, 25, 0.9);
+      border: 1px solid var(--border);
+      border-radius: 18px;
+      padding: 16px;
+      box-shadow: 0 16px 50px rgba(0,0,0,0.25);
+    }
+
+    .panel h2 { margin: 0 0 12px; font-size: 18px; }
+
+    label {
+      display: block;
+      margin: 12px 0 6px;
+      color: var(--muted);
+      font-size: 13px;
+      font-weight: 800;
+    }
+
+    input[type="text"], select {
+      width: 100%;
+      border: 1px solid var(--border);
+      background: #0b1711;
+      color: var(--text);
+      border-radius: 10px;
+      padding: 10px 12px;
+      outline: none;
+    }
+
+    input[type="color"] {
+      width: 100%;
+      height: 40px;
+      background: #0b1711;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 4px;
+    }
+
+    input[type="range"] { width: 100%; accent-color: var(--accent); }
+
+    .row { display: flex; gap: 10px; align-items: center; }
+    .row > * { flex: 1; }
+    .value { float: right; color: var(--text); font-weight: 900; }
+
+    button {
+      border: 0;
+      border-radius: 12px;
+      padding: 11px 14px;
+      background: var(--accent);
+      color: #061008;
+      font-weight: 950;
+      cursor: pointer;
+      transition: transform 0.08s ease, opacity 0.2s ease;
+    }
+
+    button:hover { transform: translateY(-1px); }
+    button:disabled { opacity: 0.55; cursor: not-allowed; transform: none; }
+
+    .secondary {
+      background: #213f2d;
+      color: var(--text);
+      border: 1px solid var(--border);
+    }
+
+    .controls { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 14px; }
+
+    .hint {
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.45;
+      margin: 10px 0;
+    }
+
+    .readout {
+      font-size: 13px;
+      padding: 10px;
+      border-radius: 12px;
+      background: #0b1711;
+      border: 1px solid var(--border);
+      margin-top: 10px;
+      line-height: 1.45;
+    }
+
+    canvas {
+      width: 100%;
+      display: block;
+      border: 1px solid var(--border);
+      background: linear-gradient(#0d1d14, #10261a);
+      border-radius: 18px;
+    }
+
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 10px;
+      margin: 14px 0;
+    }
+
+    .stat {
+      background: #0b1711;
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 10px;
+    }
+
+    .stat .k { color: var(--muted); font-size: 12px; font-weight: 850; }
+    .stat .v { font-size: 20px; font-weight: 950; margin-top: 3px; font-variant-numeric: tabular-nums; }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      border-radius: 14px;
+      overflow: hidden;
+      font-size: 13px;
+    }
+
+    th, td { padding: 9px 8px; border-bottom: 1px solid var(--border); text-align: left; }
+    th { color: var(--muted); background: var(--panel2); font-size: 12px; }
+    td.num { text-align: right; font-variant-numeric: tabular-nums; }
+
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      padding: 4px 8px;
+      border-radius: 999px;
+      background: #0b1711;
+      border: 1px solid var(--border);
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 850;
+    }
+
+    .dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
+    .good { color: var(--accent); }
+    .bad { color: var(--bad); }
+    .warn { color: var(--warn); }
+
+    @media (max-width: 900px) {
+      header { padding: 18px 14px 0; }
+      .app { grid-template-columns: 1fr; padding: 14px; }
+      .stats { grid-template-columns: repeat(2, 1fr); }
+    }
+  </style>
+</head>
+
+<body>
+  <header>
+    <h1>Multiplayer Ecosystem Sandbox</h1>
+    <div class="subtitle">
+      One shared ecosystem runs on the server. Everyone connected sees the same plants, animals, deaths, births, and cursed ecological consequences. Design a species, release it, and it appears for everyone immediately.
+    </div>
+  </header>
+
+  <main class="app">
+    <section class="panel">
+      <h2>Release species</h2>
+
+      <label>Built-in defaults</label>
+      <select id="preset"></select>
+
+      <label>Name</label>
+      <input id="name" type="text" maxlength="24" value="Snowshoe Hare" />
+
+      <div class="row">
+        <div>
+          <label>Diet</label>
+          <select id="diet">
+            <option value="producer">Producer</option>
+            <option value="herbivore" selected>Herbivore</option>
+            <option value="omnivore">Omnivore</option>
+            <option value="carnivore">Carnivore</option>
+          </select>
+        </div>
+        <div>
+          <label>Color</label>
+          <input id="color" type="color" value="#e8d2a6" />
+        </div>
+      </div>
+
+      <label>Release count <span class="value" id="countVal"></span></label>
+      <input id="count" type="range" min="1" max="120" value="38" />
+
+      <label>Size <span class="value" id="sizeVal"></span></label>
+      <input id="size" type="range" min="1" max="10" value="2" />
+
+      <label>Speed <span class="value" id="speedVal"></span></label>
+      <input id="speed" type="range" min="1" max="10" value="7" />
+
+      <label>Attack <span class="value" id="attackVal"></span></label>
+      <input id="attack" type="range" min="0" max="10" value="1" />
+
+      <label>Fertility <span class="value" id="fertilityVal"></span></label>
+      <input id="fertility" type="range" min="1" max="10" value="7" />
+
+      <div class="controls" style="margin-top: 14px;">
+        <button id="releaseBtn">Release species</button>
+        <button class="secondary" id="reconnectBtn">Reconnect</button>
+      </div>
+
+      <div class="readout" id="status">Connecting...</div>
+      <div class="readout" id="readout"></div>
+
+      <p class="hint">
+        Multiplayer logic lives on the server. This browser does not simulate the world locally anymore; it only renders snapshots from the authoritative server. That means no desync hell. Finally, a little peace.
+      </p>
+    </section>
+
+    <section class="panel">
+      <canvas id="world" width="1100" height="560"></canvas>
+
+      <div class="stats">
+        <div class="stat"><div class="k">Day</div><div class="v" id="dayStat">0</div></div>
+        <div class="stat"><div class="k">Plants</div><div class="v" id="plantStat">0</div></div>
+        <div class="stat"><div class="k">Animals</div><div class="v" id="animalStat">0</div></div>
+        <div class="stat"><div class="k">Species</div><div class="v" id="speciesStat">0</div></div>
+        <div class="stat"><div class="k">Players</div><div class="v" id="playerStat">?</div></div>
+      </div>
+
+      <h2>Live species</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>Species</th>
+            <th>Diet</th>
+            <th class="num">Alive</th>
+            <th class="num">Avg energy</th>
+            <th class="num">Trend</th>
+          </tr>
+        </thead>
+        <tbody id="speciesTable"></tbody>
+      </table>
+
+      <h2 style="margin-top: 16px;">Population over time</h2>
+      <canvas id="popChart" width="1100" height="220"></canvas>
+      <div class="readout" id="chartLegend"></div>
+    </section>
+  </main>
+
+  <script>
+    const WORLD_W = 1100;
+    const WORLD_H = 560;
+    const HISTORY_MAX = 500;
+    const RENDER_MS = 50; // 20 FPS is plenty for lots of moving dots
+
+    const presets = [
+      { label: "Meadow Grass", name: "Meadow Grass", diet: "producer", color: "#75e879", count: 140, size: 1, speed: 1, attack: 0, fertility: 8 },
+      { label: "Snowshoe Hare", name: "Snowshoe Hare", diet: "herbivore", color: "#e8d2a6", count: 38, size: 2, speed: 7, attack: 1, fertility: 7 },
+      { label: "White-tailed Deer", name: "White-tailed Deer", diet: "herbivore", color: "#c79762", count: 18, size: 6, speed: 6, attack: 1, fertility: 3 },
+      { label: "Red Fox", name: "Red Fox", diet: "omnivore", color: "#e0813f", count: 12, size: 4, speed: 6, attack: 4, fertility: 3 },
+      { label: "Raccoon", name: "Raccoon", diet: "omnivore", color: "#8b8b96", count: 10, size: 3, speed: 4, attack: 3, fertility: 4 },
+      { label: "Canada Lynx", name: "Canada Lynx", diet: "carnivore", color: "#9fb0c9", count: 10, size: 4, speed: 7, attack: 7, fertility: 2 },
+      { label: "Gray Wolf", name: "Gray Wolf", diet: "carnivore", color: "#6f7b8c", count: 4, size: 7, speed: 7, attack: 8, fertility: 1 },
+      { label: "Custom", name: "Custom Beast", diet: "herbivore", color: "#d4f5ff", count: 20, size: 3, speed: 5, attack: 2, fertility: 5 }
+    ];
+
+    const els = {
+      preset: document.getElementById("preset"),
+      name: document.getElementById("name"),
+      diet: document.getElementById("diet"),
+      color: document.getElementById("color"),
+      count: document.getElementById("count"),
+      size: document.getElementById("size"),
+      speed: document.getElementById("speed"),
+      attack: document.getElementById("attack"),
+      fertility: document.getElementById("fertility"),
+      countVal: document.getElementById("countVal"),
+      sizeVal: document.getElementById("sizeVal"),
+      speedVal: document.getElementById("speedVal"),
+      attackVal: document.getElementById("attackVal"),
+      fertilityVal: document.getElementById("fertilityVal"),
+      releaseBtn: document.getElementById("releaseBtn"),
+      reconnectBtn: document.getElementById("reconnectBtn"),
+      status: document.getElementById("status"),
+      readout: document.getElementById("readout"),
+      world: document.getElementById("world"),
+      dayStat: document.getElementById("dayStat"),
+      plantStat: document.getElementById("plantStat"),
+      animalStat: document.getElementById("animalStat"),
+      speciesStat: document.getElementById("speciesStat"),
+      playerStat: document.getElementById("playerStat"),
+      speciesTable: document.getElementById("speciesTable"),
+      popChart: document.getElementById("popChart"),
+      chartLegend: document.getElementById("chartLegend")
+    };
+
+    const ctx = els.world.getContext("2d");
+    const ctx2 = els.popChart.getContext("2d");
+
+    let ws = null;
+    let connected = false;
+    let state = null;
+    let previousCounts = new Map();
+    let lastRecordedDay = null;
+    let history = [];
+    let speciesRegistry = new Map();
+    let myClientId = null;
+
+    function getWsUrl() {
+      if (location.protocol === "http:" || location.protocol === "https:") {
+        const proto = location.protocol === "https:" ? "wss:" : "ws:";
+        return `${proto}//${location.host}`;
+      }
+      return "ws://localhost:3000";
+    }
+
+    function connect() {
+      if (ws) {
+        try { ws.close(); } catch {}
+      }
+
+      const url = getWsUrl();
+      ws = new WebSocket(url);
+      connected = false;
+      els.status.innerHTML = `<span class="warn">Connecting to ${escapeHtml(url)}...</span>`;
+      els.releaseBtn.disabled = true;
+
+      ws.addEventListener("open", () => {
+        connected = true;
+        els.releaseBtn.disabled = false;
+        els.status.innerHTML = `<span class="good">Connected. Shared world is live.</span>`;
+      });
+
+      ws.addEventListener("message", (event) => {
+        let msg;
+        try { msg = JSON.parse(event.data); } catch { return; }
+
+        if (msg.type === "welcome") {
+          myClientId = msg.id;
+          els.readout.innerHTML = `<span class="good">${escapeHtml(msg.message)}</span>`;
+          return;
+        }
+
+        if (msg.type === "snapshot") {
+          receiveSnapshot(msg);
+          return;
+        }
+
+        if (msg.type === "notice") {
+          els.readout.innerHTML = `<span class="good">${escapeHtml(msg.message)}</span>`;
+          return;
+        }
+
+        if (msg.type === "error") {
+          els.readout.innerHTML = `<span class="bad">${escapeHtml(msg.message)}</span>`;
+        }
+      });
+
+      ws.addEventListener("close", () => {
+        connected = false;
+        els.releaseBtn.disabled = true;
+        els.status.innerHTML = `<span class="bad">Disconnected. The server is either asleep, redeploying, or being dramatic.</span>`;
+        setTimeout(() => { if (!connected) connect(); }, 2500);
+      });
+
+      ws.addEventListener("error", () => {
+        els.status.innerHTML = `<span class="bad">Connection error. Check that the Node server is running.</span>`;
+      });
+    }
+
+    function receiveSnapshot(s) {
+      if (state) previousCounts = new Map(Object.entries(state.counts || {}));
+
+      // The server no longer sends plant dots every single snapshot because that was
+      // the main bandwidth/rendering tax. Keep the last plant layer until a refreshed
+      // plant layer arrives.
+      state = {
+        ...s,
+        plants: s.plants || state?.plants || [],
+        obstacles: s.obstacles || state?.obstacles || []
+      };
+
+      for (const sp of s.species || []) speciesRegistry.set(sp.id, { name: sp.name, diet: sp.diet, color: sp.color });
+
+      if (lastRecordedDay !== s.day) {
+        history.push({ day: s.day, plants: s.plantsTotal || 0, counts: { ...(s.counts || {}) } });
+        if (history.length > HISTORY_MAX) history.splice(0, history.length - HISTORY_MAX);
+        lastRecordedDay = s.day;
+      }
+
+      renderStats();
+      renderTable();
+      drawChart();
+      renderChartLegend();
+    }
+
+    function formSpecies() {
+      return {
+        name: els.name.value.trim() || "Unnamed",
+        diet: els.diet.value,
+        color: els.color.value,
+        count: Number(els.count.value),
+        size: Number(els.size.value),
+        speed: Number(els.speed.value),
+        attack: Number(els.attack.value),
+        fertility: Number(els.fertility.value)
+      };
+    }
+
+    function releaseSpecies() {
+      if (!ws || ws.readyState !== WebSocket.OPEN) {
+        els.readout.innerHTML = `<span class="bad">Not connected. Start the server first, bestie.</span>`;
+        return;
+      }
+      ws.send(JSON.stringify({ type: "release_species", species: formSpecies() }));
+    }
+
+    function updateForm() {
+      if (els.diet.value === "producer") els.attack.value = 0;
+      if (els.diet.value === "herbivore") els.attack.value = Math.min(Number(els.attack.value), 3);
+
+      els.countVal.textContent = els.count.value;
+      els.sizeVal.textContent = els.size.value;
+      els.speedVal.textContent = els.speed.value;
+      els.attackVal.textContent = els.attack.value;
+      els.fertilityVal.textContent = els.fertility.value;
+
+      const diet = els.diet.value;
+      const summary = diet === "producer"
+        ? "Producer: adds plant biomass to the shared world."
+        : diet === "herbivore"
+          ? "Herbivore: eats plants, reproduces quickly, becomes predator food. Tragic but necessary."
+          : diet === "omnivore"
+            ? "Omnivore: eats plants and some animals; flexible but not dominant."
+            : "Carnivore: hunts animals only; powerful but expensive to keep alive.";
+      els.readout.innerHTML = `<span class="good">${summary}</span>`;
+    }
+
+    function applyPreset(index) {
+      const p = presets[index];
+      if (!p) return;
+      els.name.value = p.name;
+      els.diet.value = p.diet;
+      els.color.value = p.color;
+      els.count.value = p.count;
+      els.size.value = p.size;
+      els.speed.value = p.speed;
+      els.attack.value = p.attack;
+      els.fertility.value = p.fertility;
+      updateForm();
+    }
+
+    function renderStats() {
+      if (!state) return;
+      els.dayStat.textContent = state.day ?? 0;
+      els.plantStat.textContent = (state.plantsTotal || 0).toLocaleString();
+      els.animalStat.textContent = (state.animalsTotal || 0).toLocaleString();
+      els.speciesStat.textContent = (state.speciesTotal || 0).toLocaleString();
+      els.playerStat.textContent = "live";
+    }
+
+    function renderTable() {
+      if (!state) return;
+
+      const counts = new Map(Object.entries(state.counts || {}));
+      const avgEnergy = state.avgEnergy || {};
+
+      const rows = [...(state.species || [])]
+        .sort((a, b) => (counts.get(b.id) || 0) - (counts.get(a.id) || 0))
+        .map(s => {
+          const now = counts.get(s.id) || 0;
+          const before = Number(previousCounts.get(s.id) ?? now);
+          const diff = now - before;
+          const trend = diff > 0 ? `+${diff}` : diff < 0 ? String(diff) : "±0";
+          const klass = diff > 0 ? "good" : diff < 0 ? "bad" : "warn";
+          const avg = Number(avgEnergy[s.id] || 0);
+          return `
+            <tr>
+              <td>
+                <span class="pill"><span class="dot" style="background:${s.color}"></span>${escapeHtml(s.name)}</span>
+              </td>
+              <td>${escapeHtml(s.diet)}</td>
+              <td class="num">${now}</td>
+              <td class="num">${avg.toFixed(2)}</td>
+              <td class="num ${klass}">${trend}</td>
+            </tr>
+          `;
+        }).join("");
+
+      els.speciesTable.innerHTML = rows || `<tr><td colspan="5" class="warn">No animals yet. Release something and ruin the ecosystem together.</td></tr>`;
+    }
+
+    function drawWorld() {
+      ctx.clearRect(0, 0, WORLD_W, WORLD_H);
+      if (!state) {
+        ctx.fillStyle = "#9fc7ad";
+        ctx.font = "15px system-ui";
+        ctx.fillText("Waiting for server snapshot...", 24, 42);
+        return;
+      }
+
+      for (const o of state.obstacles || []) {
+        const grad = ctx.createRadialGradient(o.x, o.y, 0, o.x, o.y, o.r);
+        grad.addColorStop(0, "#1c3324");
+        grad.addColorStop(1, "#0e1d14");
+        ctx.globalAlpha = 0.92;
+        ctx.fillStyle = grad;
+        ctx.beginPath();
+        ctx.arc(o.x, o.y, o.r, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.globalAlpha = 0.35;
+        ctx.strokeStyle = "#3a6b4a";
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+      }
+      ctx.globalAlpha = 1;
+
+      for (const p of state.plants || []) {
+        ctx.globalAlpha = Math.max(0.25, Math.min(0.9, 0.35 + (p.e || 0.5) * 0.45));
+        ctx.fillStyle = "#75e879";
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, 2.2, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      const speciesMap = new Map((state.species || []).map(s => [s.id, s]));
+      for (const a of state.animals || []) {
+        const s = speciesMap.get(a.sid);
+        if (!s) continue;
+        const r = 2.2 + s.size * 0.55;
+        ctx.globalAlpha = Math.max(0.35, Math.min(1, 0.45 + (a.e || 0) * 0.25));
+        ctx.fillStyle = s.color;
+        ctx.beginPath();
+        ctx.arc(a.x, a.y, r, 0, Math.PI * 2);
+        ctx.fill();
+
+        if (s.diet === "carnivore") {
+          ctx.globalAlpha = 0.9;
+          ctx.strokeStyle = "#ffe1e1";
+          ctx.lineWidth = 1;
+          ctx.stroke();
+        } else if (s.diet === "omnivore") {
+          ctx.globalAlpha = 0.65;
+          ctx.strokeStyle = "#eafff0";
+          ctx.lineWidth = 0.7;
+          ctx.stroke();
+        }
+      }
+      ctx.globalAlpha = 1;
+
+      const centroid = new Map();
+      for (const s of state.species || []) centroid.set(s.id, { x: 0, y: 0, n: 0, s });
+      for (const a of state.animals || []) {
+        const c = centroid.get(a.sid);
+        if (!c) continue;
+        c.x += a.x;
+        c.y += a.y;
+        c.n++;
+      }
+
+      ctx.textAlign = "center";
+      for (const c of centroid.values()) {
+        if (!c.n) continue;
+        const count = state.counts?.[c.s.id] || 0;
+        ctx.fillStyle = "#eafff0";
+        ctx.font = "800 12px system-ui";
+        ctx.fillText(`${c.s.name} (${count})`, c.x / c.n, c.y / c.n - 12);
+      }
+      ctx.textAlign = "left";
+    }
+
+    function drawChart() {
+      const W = els.popChart.width;
+      const H = els.popChart.height;
+      ctx2.clearRect(0, 0, W, H);
+
+      if (history.length < 2) {
+        ctx2.fillStyle = "#9fc7ad";
+        ctx2.font = "13px system-ui";
+        ctx2.fillText("Population history appears after a few server snapshots.", 16, H / 2);
+        return;
+      }
+
+      const padL = 48, padR = 48, padT = 14, padB = 22;
+      const plotW = W - padL - padR;
+      const plotH = H - padT - padB;
+      const dayMin = history[0].day;
+      const dayMax = history[history.length - 1].day;
+      const dayRange = Math.max(1, dayMax - dayMin);
+
+      let animalMax = 5;
+      let plantMax = 5;
+      for (const h of history) {
+        plantMax = Math.max(plantMax, h.plants);
+        for (const sid in h.counts) animalMax = Math.max(animalMax, h.counts[sid]);
+      }
+      animalMax *= 1.15;
+      plantMax *= 1.12;
+
+      const xFor = day => padL + ((day - dayMin) / dayRange) * plotW;
+      const yAnimal = val => padT + plotH - (val / animalMax) * plotH;
+      const yPlant = val => padT + plotH - (val / plantMax) * plotH;
+
+      ctx2.strokeStyle = "#1d3a28";
+      ctx2.lineWidth = 1;
+      ctx2.font = "11px system-ui";
+      for (let i = 0; i <= 4; i++) {
+        const v = (animalMax / 4) * i;
+        const y = yAnimal(v);
+        ctx2.beginPath();
+        ctx2.moveTo(padL, y);
+        ctx2.lineTo(W - padR, y);
+        ctx2.stroke();
+        ctx2.fillStyle = "#9fb0c9";
+        ctx2.textAlign = "right";
+        ctx2.fillText(Math.round(v), padL - 6, y + 4);
+      }
+
+      for (let i = 0; i <= 4; i++) {
+        const v = (plantMax / 4) * i;
+        const y = yPlant(v);
+        ctx2.fillStyle = "#75e879";
+        ctx2.textAlign = "left";
+        ctx2.fillText(Math.round(v), W - padR + 6, y + 4);
+      }
+
+      ctx2.fillStyle = "#6f9e84";
+      ctx2.textAlign = "left";
+      ctx2.fillText(`day ${dayMin}`, padL, H - 6);
+      ctx2.textAlign = "right";
+      ctx2.fillText(`day ${dayMax}`, W - padR, H - 6);
+      ctx2.textAlign = "left";
+
+      ctx2.beginPath();
+      ctx2.strokeStyle = "#75e879";
+      ctx2.globalAlpha = 0.6;
+      ctx2.lineWidth = 1.5;
+      history.forEach((h, i) => {
+        const x = xFor(h.day);
+        const y = yPlant(h.plants);
+        if (i === 0) ctx2.moveTo(x, y); else ctx2.lineTo(x, y);
+      });
+      ctx2.stroke();
+      ctx2.globalAlpha = 1;
+
+      for (const [sid, meta] of speciesRegistry.entries()) {
+        ctx2.beginPath();
+        ctx2.strokeStyle = meta.color;
+        ctx2.lineWidth = 2;
+        let started = false;
+        for (const h of history) {
+          const x = xFor(h.day);
+          const y = yAnimal(h.counts[sid] || 0);
+          if (!started) { ctx2.moveTo(x, y); started = true; } else { ctx2.lineTo(x, y); }
+        }
+        if (started) ctx2.stroke();
+      }
+    }
+
+    function renderChartLegend() {
+      const items = [`<span class="pill"><span class="dot" style="background:#75e879"></span>Plants</span>`];
+      for (const meta of speciesRegistry.values()) {
+        items.push(`<span class="pill"><span class="dot" style="background:${meta.color}"></span>${escapeHtml(meta.name)} (${escapeHtml(meta.diet)})</span>`);
+      }
+      els.chartLegend.innerHTML = items.join(" ");
+    }
+
+    let lastDrawAt = 0;
+    function loop(now = 0) {
+      if (now - lastDrawAt >= RENDER_MS) {
+        lastDrawAt = now;
+        drawWorld();
+      }
+      requestAnimationFrame(loop);
+    }
+
+    function escapeHtml(str) {
+      return String(str).replace(/[&<>"']/g, c => ({
+        "&": "&amp;",
+        "<": "&lt;",
+        ">": "&gt;",
+        '"': "&quot;",
+        "'": "&#039;"
+      }[c]));
+    }
+
+    function init() {
+      els.preset.innerHTML = presets.map((p, i) => `<option value="${i}">${escapeHtml(p.label)}</option>`).join("");
+      els.preset.addEventListener("change", () => applyPreset(Number(els.preset.value)));
+      els.releaseBtn.addEventListener("click", releaseSpecies);
+      els.reconnectBtn.addEventListener("click", connect);
+      ["name", "color", "count", "size", "speed", "attack", "fertility"].forEach(id => els[id].addEventListener("input", updateForm));
+      els.diet.addEventListener("change", updateForm);
+      applyPreset(1);
+      connect();
+      loop();
+    }
+
+    init();
+  </script>
+</body>
+</html>

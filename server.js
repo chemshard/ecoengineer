@@ -6,8 +6,8 @@ const crypto = require("crypto");
 const WebSocket = require("ws");
 
 const PORT = process.env.PORT || 3000;
-const TICK_MS = Number(process.env.TICK_MS || 90);
-const SNAPSHOT_MS = Number(process.env.SNAPSHOT_MS || 140);
+const TICK_MS = Number(process.env.TICK_MS || 120);
+const SNAPSHOT_MS = Number(process.env.SNAPSHOT_MS || 260);
 const SAVE_WORLD = process.env.SAVE_WORLD === "1";
 const WORLD_SAVE_PATH = process.env.WORLD_SAVE_PATH || path.join(__dirname, "world_snapshot.json");
 
@@ -16,10 +16,12 @@ const WORLD_H = 560;
 const INITIAL_PLANTS = 1500;
 const PLANT_K = 2300;
 const PLANT_R = 0.05;
-const MAX_PLANTS_SENT = 1300;
-const MAX_ANIMALS = 2200;
-const MAX_PLANTS = 2600;
-const MAX_SPECIES = 80;
+const MAX_PLANTS_SENT = Number(process.env.MAX_PLANTS_SENT || 450);
+const MAX_ANIMALS_SENT = Number(process.env.MAX_ANIMALS_SENT || 900);
+const PLANT_SNAPSHOT_EVERY = Number(process.env.PLANT_SNAPSHOT_EVERY || 8);
+const MAX_ANIMALS = Number(process.env.MAX_ANIMALS || 900);
+const MAX_PLANTS = Number(process.env.MAX_PLANTS || 1800);
+const MAX_SPECIES = Number(process.env.MAX_SPECIES || 50);
 
 let day = 0;
 let plants = [];
@@ -30,6 +32,7 @@ let lastCounts = new Map();
 let byDiet = { herbivore: [], omnivore: [], carnivore: [] };
 let animalsById = new Map();
 let lastSnapshotAt = 0;
+let snapshotSeq = 0;
 
 function rand(min, max) { return Math.random() * (max - min) + min; }
 function clamp(x, min, max) { return Math.max(min, Math.min(max, x)); }
@@ -68,7 +71,9 @@ function makeAnimal(s, x = rand(30, WORLD_W - 30), y = rand(30, WORLD_H - 30)) {
   };
 }
 
-function getSpecies(sid) { return species.find(s => s.id === sid); }
+let speciesById = new Map();
+function rebuildSpeciesMap() { speciesById = new Map(species.map(s => [s.id, s])); }
+function getSpecies(sid) { return speciesById.get(sid); }
 
 function countsBySpecies() {
   const m = new Map();
@@ -222,7 +227,7 @@ function fleeFrom(a, s, threat) {
 function graze(a, s, deadPlants) {
   const radius = 11 + s.size * 2.2;
   let bites = 0;
-  const tries = Math.min(160, plants.length);
+  const tries = Math.min(55, plants.length);
   for (let i = 0; i < tries && bites < 3; i++) {
     const p = plants[Math.floor(Math.random() * plants.length)];
     if (!p || deadPlants.has(p.id)) continue;
@@ -238,7 +243,7 @@ function graze(a, s, deadPlants) {
 }
 
 function hunt(a, s, deadAnimals) {
-  const { nearest, density } = scanPrey(a, s, s.diet === "carnivore" ? 280 : 150);
+  const { nearest, density } = scanPrey(a, s, s.diet === "carnivore" ? 90 : 60);
   const giveUpDistance = (180 + s.speed * 14) * 1.6;
   let target = a.targetId ? animalsById.get(a.targetId) : null;
   if (target && (deadAnimals.has(target.id) || !getSpecies(target.sid))) target = null;
@@ -385,26 +390,26 @@ function stepWorld() {
     let hasTarget = false;
 
     if (s.diet === "herbivore") {
-      const threat = scanThreat(a, s, 90);
+      const threat = scanThreat(a, s, 45);
       if (threat) {
         fleeFrom(a, s, threat);
         hasTarget = true;
         fed = graze(a, s, deadPlants);
       } else {
         fed = graze(a, s, deadPlants);
-        const plant = findNearestPlant(a, 260);
+        const plant = findNearestPlant(a, 80);
         hasTarget = !!plant;
         moveToward(a, plant, chaseStrength(s));
       }
     } else if (s.diet === "omnivore") {
-      const threat = scanThreat(a, s, 90);
+      const threat = scanThreat(a, s, 45);
       if (threat) {
         fleeFrom(a, s, threat);
         hasTarget = true;
         fed = graze(a, s, deadPlants);
       } else if (a.energy < 1.00 || Math.random() < 0.62) {
         fed = graze(a, s, deadPlants);
-        const plant = findNearestPlant(a, 190);
+        const plant = findNearestPlant(a, 70);
         hasTarget = !!plant;
         moveToward(a, plant, chaseStrength(s) * 0.78);
       } else {
@@ -449,6 +454,7 @@ function stepWorld() {
 
   const counts = countsBySpecies();
   species = species.filter(s => counts.has(s.id));
+  rebuildSpeciesMap();
 
   day++;
 }
@@ -492,6 +498,7 @@ function releaseSpecies(input) {
   };
 
   species.push(s);
+  rebuildSpeciesMap();
 
   let centre = { x: rand(90, WORLD_W - 90), y: rand(90, WORLD_H - 90) };
   if (s.diet === "carnivore" || s.diet === "omnivore") {
@@ -522,6 +529,7 @@ function resetWorld() {
   plants = [];
   animals = [];
   species = [];
+  rebuildSpeciesMap();
   lastCounts = new Map();
   generateObstacles();
   for (let i = 0; i < INITIAL_PLANTS; i++) plants.push(makePlant());
@@ -536,6 +544,7 @@ function loadWorldIfPresent() {
     obstacles = Array.isArray(data.obstacles) ? data.obstacles : [];
     animals = Array.isArray(data.animals) ? data.animals.slice(0, MAX_ANIMALS) : [];
     species = Array.isArray(data.species) ? data.species.slice(0, MAX_SPECIES) : [];
+    rebuildSpeciesMap();
     if (!plants.length || !obstacles.length) throw new Error("snapshot missing core world arrays");
     console.log(`Loaded world snapshot from ${WORLD_SAVE_PATH}`);
     return true;
@@ -559,11 +568,27 @@ function saveWorld() {
 
 function compactSnapshot(includePlants = true) {
   const counts = countsBySpecies();
+
+  const energyBySpecies = new Map();
+  for (const a of animals) {
+    let e = energyBySpecies.get(a.sid);
+    if (!e) {
+      e = { sum: 0, n: 0 };
+      energyBySpecies.set(a.sid, e);
+    }
+    e.sum += a.energy;
+    e.n++;
+  }
+  const avgEnergy = {};
+  for (const [sid, e] of energyBySpecies.entries()) avgEnergy[sid] = Number((e.sum / Math.max(1, e.n)).toFixed(2));
+
   const plantList = includePlants
-    ? (plants.length > MAX_PLANTS_SENT
-        ? [...plants].sort((a, b) => a.rank - b.rank).slice(0, MAX_PLANTS_SENT)
-        : plants)
+    ? plants.filter(p => p.rank <= 0.35).slice(0, MAX_PLANTS_SENT)
     : undefined;
+
+  const animalList = animals.length > MAX_ANIMALS_SENT
+    ? animals.filter(a => a.rank <= 0.45).slice(0, MAX_ANIMALS_SENT)
+    : animals;
 
   return {
     type: "snapshot",
@@ -574,21 +599,22 @@ function compactSnapshot(includePlants = true) {
     plantsTotal: plants.length,
     animalsTotal: animals.length,
     speciesTotal: species.length,
-    plants: plantList?.map(p => ({ x: Math.round(p.x), y: Math.round(p.y), e: Number(p.energy.toFixed(2)) })),
-    animals: animals.map(a => ({
-      id: a.id,
+    sentPlants: plantList ? plantList.length : undefined,
+    sentAnimals: animalList.length,
+    plants: plantList?.map(p => ({ x: Math.round(p.x), y: Math.round(p.y), e: Number(p.energy.toFixed(1)) })),
+    animals: animalList.map(a => ({
       sid: a.sid,
-      x: Number(a.x.toFixed(1)),
-      y: Number(a.y.toFixed(1)),
-      e: Number(a.energy.toFixed(2))
+      x: Math.round(a.x),
+      y: Math.round(a.y),
+      e: Number(a.energy.toFixed(1))
     })),
-    counts: Object.fromEntries(counts)
+    counts: Object.fromEntries(counts),
+    avgEnergy
   };
 }
-
 const app = express();
 const server = http.createServer(app);
-const wss = new WebSocket.Server({ server });
+const wss = new WebSocket.Server({ server, perMessageDeflate: false });
 
 app.use(express.static(path.join(__dirname, "public")));
 app.get("/healthz", (req, res) => res.status(200).send("ok"));
@@ -601,7 +627,7 @@ function send(ws, obj) {
 function broadcast(obj) {
   const msg = JSON.stringify(obj);
   for (const client of wss.clients) {
-    if (client.readyState === WebSocket.OPEN) client.send(msg);
+    if (client.readyState === WebSocket.OPEN && client.bufferedAmount < 512_000) client.send(msg);
   }
 }
 
@@ -638,7 +664,8 @@ setInterval(() => {
   const now = Date.now();
   if (now - lastSnapshotAt >= SNAPSHOT_MS) {
     lastSnapshotAt = now;
-    broadcast(compactSnapshot(true));
+    snapshotSeq++;
+    broadcast(compactSnapshot(snapshotSeq % PLANT_SNAPSHOT_EVERY === 0));
   }
 }, TICK_MS);
 
