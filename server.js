@@ -21,6 +21,8 @@ const MAX_ANIMALS = 2200;
 const MAX_PLANTS = 2600;
 const MAX_SPECIES = 80;
 
+const RESET_EVERY_DAYS = Number(process.env.RESET_EVERY_DAYS || 10000);
+
 let day = 0;
 let plants = [];
 let obstacles = [];
@@ -635,10 +637,29 @@ if (!loadWorldIfPresent()) resetWorld();
 
 setInterval(() => {
   stepWorld();
+
+  if (day >= RESET_EVERY_DAYS) {
+    resetWorld();
+    snapshotSeq = 0;
+
+    // If SAVE_WORLD=1, immediately save the clean reset state
+    // so Render/server restarts don't reload the old cursed world.
+    saveWorld();
+
+    broadcast({
+      type: "notice",
+      message: `World reset after ${RESET_EVERY_DAYS} days. Clean slate.`
+    });
+
+    broadcast(compactSnapshot(true));
+    return;
+  }
+
   const now = Date.now();
   if (now - lastSnapshotAt >= SNAPSHOT_MS) {
     lastSnapshotAt = now;
-    broadcast(compactSnapshot(true));
+    snapshotSeq++;
+    broadcast(compactSnapshot(snapshotSeq % PLANT_SNAPSHOT_EVERY === 0));
   }
 }, TICK_MS);
 
