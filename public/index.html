@@ -289,7 +289,8 @@
   <script>
     const WORLD_W = 1100;
     const WORLD_H = 560;
-    const HISTORY_MAX = 650;
+    const HISTORY_MAX = 500;
+    const RENDER_MS = 50; // 20 FPS is plenty for lots of moving dots
 
     const presets = [
       { label: "Meadow Grass", name: "Meadow Grass", diet: "producer", color: "#75e879", count: 140, size: 1, speed: 1, attack: 0, fertility: 8 },
@@ -408,7 +409,16 @@
 
     function receiveSnapshot(s) {
       if (state) previousCounts = new Map(Object.entries(state.counts || {}));
-      state = s;
+
+      // The server no longer sends plant dots every single snapshot because that was
+      // the main bandwidth/rendering tax. Keep the last plant layer until a refreshed
+      // plant layer arrives.
+      state = {
+        ...s,
+        plants: s.plants || state?.plants || [],
+        obstacles: s.obstacles || state?.obstacles || []
+      };
+
       for (const sp of s.species || []) speciesRegistry.set(sp.id, { name: sp.name, diet: sp.diet, color: sp.color });
 
       if (lastRecordedDay !== s.day) {
@@ -492,13 +502,7 @@
       if (!state) return;
 
       const counts = new Map(Object.entries(state.counts || {}));
-      const energy = new Map();
-      for (const a of state.animals || []) {
-        if (!energy.has(a.sid)) energy.set(a.sid, { sum: 0, n: 0 });
-        const e = energy.get(a.sid);
-        e.sum += a.e || 0;
-        e.n++;
-      }
+      const avgEnergy = state.avgEnergy || {};
 
       const rows = [...(state.species || [])]
         .sort((a, b) => (counts.get(b.id) || 0) - (counts.get(a.id) || 0))
@@ -508,8 +512,7 @@
           const diff = now - before;
           const trend = diff > 0 ? `+${diff}` : diff < 0 ? String(diff) : "±0";
           const klass = diff > 0 ? "good" : diff < 0 ? "bad" : "warn";
-          const e = energy.get(s.id);
-          const avg = e ? e.sum / e.n : 0;
+          const avg = Number(avgEnergy[s.id] || 0);
           return `
             <tr>
               <td>
@@ -701,8 +704,12 @@
       els.chartLegend.innerHTML = items.join(" ");
     }
 
-    function loop() {
-      drawWorld();
+    let lastDrawAt = 0;
+    function loop(now = 0) {
+      if (now - lastDrawAt >= RENDER_MS) {
+        lastDrawAt = now;
+        drawWorld();
+      }
       requestAnimationFrame(loop);
     }
 
