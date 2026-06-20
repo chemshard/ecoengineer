@@ -32,6 +32,7 @@ let lastCounts = new Map();
 let byDiet = { herbivore: [], omnivore: [], carnivore: [] };
 let animalsById = new Map();
 let lastSnapshotAt = 0;
+let snapshotSeq = 0;
 
 function rand(min, max) { return Math.random() * (max - min) + min; }
 function clamp(x, min, max) { return Math.max(min, Math.min(max, x)); }
