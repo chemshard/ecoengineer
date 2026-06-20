@@ -420,6 +420,10 @@
 
     function receiveSnapshot(s) {
       if (state) previousCounts = new Map(Object.entries(state.counts || {}));
+      if (state && (!s.plants || s.plants.length === 0)) {
+        s.plants = state.plants || [];
+      }
+
       state = s;
       if (lastRecordedDay !== null && s.day < lastRecordedDay) {
         history = [];
