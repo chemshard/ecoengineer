@@ -1,6 +1,9 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Sniglet:wght@400;800&display=swap" rel="stylesheet">
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Ecoengineer</title>
@@ -21,7 +24,7 @@
 
     body {
       margin: 0;
-      font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      font-family: "Sniglet", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
       color: var(--text);
       background: radial-gradient(circle at top, #173823 0%, var(--bg) 58%);
     }
@@ -397,12 +400,12 @@
       ws.addEventListener("close", () => {
         connected = false;
         els.releaseBtn.disabled = true;
-        els.status.innerHTML = `<span class="bad">Disconnected. The server is either asleep, redeploying, or being dramatic.</span>`;
+        els.status.innerHTML = `<span class="bad">Disconnected. Try reconnecting to the server again.</span>`;
         setTimeout(() => { if (!connected) connect(); }, 2500);
       });
 
       ws.addEventListener("error", () => {
-        els.status.innerHTML = `<span class="bad">Connection error. Check that the Node server is running.</span>`;
+        els.status.innerHTML = `<span class="bad">Connection error. Something's wrong with Node maybe(?)</span>`;
       });
     }
 
@@ -438,7 +441,7 @@
 
     function releaseSpecies() {
       if (!ws || ws.readyState !== WebSocket.OPEN) {
-        els.readout.innerHTML = `<span class="bad">Not connected. Start the server first, bestie.</span>`;
+        els.readout.innerHTML = `<span class="bad">Not connected. Start the server first. If you see this, not good...</span>`;
         return;
       }
       ws.send(JSON.stringify({ type: "release_species", species: formSpecies() }));
@@ -458,7 +461,7 @@
       const summary = diet === "producer"
         ? "Producer: adds plant biomass to the shared world."
         : diet === "herbivore"
-          ? "Herbivore: eats plants, reproduces quickly, becomes predator food. Tragic but necessary."
+          ? "Herbivore: eats plants, reproduces quickly, eaten by predators."
           : diet === "omnivore"
             ? "Omnivore: eats plants and some animals; flexible but not dominant."
             : "Carnivore: hunts animals only; powerful but expensive to keep alive.";
@@ -523,14 +526,14 @@
           `;
         }).join("");
 
-      els.speciesTable.innerHTML = rows || `<tr><td colspan="5" class="warn">No animals yet. Release something and ruin the ecosystem together.</td></tr>`;
+      els.speciesTable.innerHTML = rows || `<tr><td colspan="5" class="warn">Waiting for the animals to be released into the system!</td></tr>`;
     }
 
     function drawWorld() {
       ctx.clearRect(0, 0, WORLD_W, WORLD_H);
       if (!state) {
         ctx.fillStyle = "#9fc7ad";
-        ctx.font = "15px system-ui";
+        ctx.font = "15px Sniglet, system-ui";
         ctx.fillText("Waiting for server snapshot...", 24, 42);
         return;
       }
@@ -599,7 +602,7 @@
         if (!c.n) continue;
         const count = state.counts?.[c.s.id] || 0;
         ctx.fillStyle = "#eafff0";
-        ctx.font = "800 12px system-ui";
+        ctx.font = "800 12px Sniglet, system-ui";
         ctx.fillText(`${c.s.name} (${count})`, c.x / c.n, c.y / c.n - 12);
       }
       ctx.textAlign = "left";
@@ -612,8 +615,8 @@
 
       if (history.length < 2) {
         ctx2.fillStyle = "#9fc7ad";
-        ctx2.font = "13px system-ui";
-        ctx2.fillText("Population history appears after a few server snapshots.", 16, H / 2);
+        ctx2.font = "13px Sniglet, system-ui";
+        ctx2.fillText("If the code is right, you should see something...? Idk", 16, H / 2);
         return;
       }
 
@@ -639,7 +642,7 @@
 
       ctx2.strokeStyle = "#1d3a28";
       ctx2.lineWidth = 1;
-      ctx2.font = "11px system-ui";
+      ctx2.font = "11px Sniglet, system-ui";
       for (let i = 0; i <= 4; i++) {
         const v = (animalMax / 4) * i;
         const y = yAnimal(v);
