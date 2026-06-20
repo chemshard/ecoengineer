@@ -421,6 +421,11 @@
     function receiveSnapshot(s) {
       if (state) previousCounts = new Map(Object.entries(state.counts || {}));
       state = s;
+      if (lastRecordedDay !== null && s.day < lastRecordedDay) {
+        history = [];
+        speciesRegistry = new Map();
+        previousCounts = new Map();
+      }    
       for (const sp of s.species || []) speciesRegistry.set(sp.id, { name: sp.name, diet: sp.diet, color: sp.color });
 
       if (lastRecordedDay !== s.day) {
