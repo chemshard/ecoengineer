@@ -21,7 +21,7 @@ const MAX_ANIMALS = 2200;
 const MAX_PLANTS = 2600;
 const MAX_SPECIES = 80;
 
-const RESET_EVERY_DAYS = Number(process.env.RESET_EVERY_DAYS || 10000);
+const RESET_EVERY_DAYS = Number(process.env.RESET_EVERY_DAYS || 1000000);
 const PLANT_SNAPSHOT_EVERY = Number(process.env.PLANT_SNAPSHOT_EVERY || 8);
 
 let day = 0;
